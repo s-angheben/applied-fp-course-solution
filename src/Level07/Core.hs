@@ -39,19 +39,31 @@ import qualified Level07.Conf                       as Conf
 import qualified Level07.DB                         as DB
 
 import qualified Level07.Responses                  as Res
-import           Level07.Types                      (Conf, ConfigError,
+import           Level07.Types                      (Conf (dbFilePath), ConfigError,
                                                      ContentType (PlainText),
                                                      Error (..), RqType (..),
                                                      confPortToWai,
                                                      encodeComment, encodeTopic,
-                                                     mkCommentText, mkTopic)
+                                                     mkCommentText, mkTopic, DBFilePath (getDBFilePath))
 
 import           Level07.AppM                       (App, Env (..), liftEither,
                                                      runApp)
 
 -- | We're going to use the `mtl` ExceptT monad transformer to make the loading of
 -- our `Conf` a bit more straight-forward.
-import           Control.Monad.Except               (ExceptT (..), runExceptT)
+-- | We're going to use the `mtl` ExceptT monad transformer to make the loading of
+-- our `Conf` a bit more straight-forward.
+-- | We're going to use the `mtl` ExceptT monad transformer to make the loading of
+-- our `Conf` a bit more straight-forward.
+-- | We're going to use the `mtl` ExceptT monad transformer to make the loading of
+-- our `Conf` a bit more straight-forward.
+import           Control.Monad.Except               (ExceptT (..), runExceptT, MonadError (throwError), withExcept)
+import Level07.Conf (parseOptions)
+import Level07.DB
+import Control.Error (withExceptT)
+import qualified Data.Text as T
+import Control.Lens (_18')
+import Level07.Responses (mkResponse)
 
 -- | Our start-up is becoming more complicated and could fail in new and
 -- interesting ways. But we also want to be able to capture these errors in a
@@ -83,7 +95,22 @@ runApplication = do
 -- 'mtl' on Hackage: https://hackage.haskell.org/package/mtl
 --
 prepareAppReqs :: ExceptT StartUpError IO Env
-prepareAppReqs = error "prepareAppReqs not reimplemented with ExceptT"
+prepareAppReqs = do
+  conf  <- withExceptT ConfErr tryParseConf
+  appDB <- withExceptT DBInitErr $ tryInitDB (dbFilePath conf)
+  return $ Env loggerF conf appDB
+  where 
+    tryParseConf   = ExceptT $ parseOptions "files/appconfig.json"
+    tryInitDB dbfp = ExceptT $ initDB dbfp
+    loggerF = liftIO . putStrLn . ("Logger: " ++) . T.unpack
+  
+{- old
+  do
+  conf <- first ConfErr $ parseOptions "files/test.json"
+  appDB <- first DBInitErr $ AppM $ initDB (getDBFilePath . dbFile $ conf)
+  return (conf, appDB)
+-}
+  -- error "prepareAppReqs not reimplemented with ExceptT"
   -- You may copy your previous implementation of this function and try refactoring it. On the
   -- condition you have to explain to the person next to you what you've done and why it works.
 
@@ -94,8 +121,11 @@ prepareAppReqs = error "prepareAppReqs not reimplemented with ExceptT"
 app
   :: Env
   -> Application
-app =
-  error "Copy your completed 'app' from the previous level and refactor it here"
+app env req resp = runApp myApp env >>= resp . handleEspErr
+  where
+    myApp = mkRequest req >>= handleRequest 
+    handleEspErr = either mkErrorResponse id 
+  
 
 handleRequest
   :: RqType

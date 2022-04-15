@@ -26,13 +26,13 @@ import           Data.Maybe                 (fromMaybe)
 
 import           Data.Functor.Contravariant ((>$<))
 
-import           Data.Time                  (UTCTime)
+import           Data.Time                  (UTCTime (UTCTime))
 import qualified Data.Time.Format           as TF
 
-import           Waargonaut.Encode          (Encoder)
+import           Waargonaut.Encode          (Encoder, int)
 import qualified Waargonaut.Encode          as E
 
-import           Level04.DB.Types           (DBComment)
+import           Level04.DB.Types           (DBComment (DBComment, dbCommentId))
 
 -- | Notice how we've moved these types into their own modules. It's cheap and
 -- easy to add modules to carve out components in a Haskell application. So
@@ -40,10 +40,13 @@ import           Level04.DB.Types           (DBComment)
 -- distinct functionality, or you want to carve out a particular piece of code,
 -- just spin up another module.
 import           Level04.Types.CommentText  (CommentText, getCommentText,
-                                             mkCommentText)
-import           Level04.Types.Topic        (Topic, getTopic, mkTopic)
+                                             mkCommentText, encodeCommentText)
+import           Level04.Types.Topic        (Topic, getTopic, mkTopic, encodeTopic)
 
 import           Level04.Types.Error        (Error (EmptyCommentText, EmptyTopic, UnknownRoute))
+
+
+import           Data.Functor.Contravariant (contramap)
 
 newtype CommentId = CommentId Int
   deriving (Eq, Show)
@@ -65,10 +68,18 @@ data Comment = Comment
 --
 -- 'https://hackage.haskell.org/package/waargonaut/docs/Waargonaut-Encode.html'
 --
+
 encodeComment :: Applicative f => Encoder f Comment
-encodeComment =
-  error "Comment JSON encoder not implemented"
+encodeComment = E.mapLikeObj $ \cm ->
+    E.atKey' "CommentId"    encodeCommentId       (commentId cm) 
+  . E.atKey' "CommentTopic" encodeTopic           (commentTopic cm)
+  . E.atKey' "CommentBody"  encodeCommentText     (commentBody cm)
+  . E.atKey' "CommentTime"  encodeISO8601DateTime (commentTime cm)
   -- Tip: Use the 'encodeISO8601DateTime' to handle the UTCTime for us.
+
+
+encodeCommentId :: Applicative f => Encoder f CommentId
+encodeCommentId = contramap (\(CommentId i) -> i) E.int
 
 -- | For safety we take our stored `DBComment` and try to construct a `Comment`
 -- that we would be okay with showing someone. However unlikely it may be, this
@@ -77,8 +88,16 @@ encodeComment =
 fromDBComment
   :: DBComment
   -> Either Error Comment
-fromDBComment =
-  error "fromDBComment not yet implemented"
+fromDBComment (DBComment dbCId dbCT dbCB dbCTime) =
+  do
+    commTop <- mkTopic dbCT
+    commBod <- mkCommentText dbCB
+    return $ Comment {
+      commentId    = CommentId dbCId
+    , commentTopic = commTop
+    , commentBody  = commBod
+    , commentTime  = dbCTime
+    }
 
 data RqType
   = AddRq Topic CommentText

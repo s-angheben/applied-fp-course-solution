@@ -30,7 +30,7 @@ import           Data.Text.Lazy.Encoding            (encodeUtf8)
 
 import           Database.SQLite.SimpleErrors.Types (SQLiteResponse)
 
-import           Waargonaut.Encode                  (Encoder')
+import           Waargonaut.Encode                  (Encoder', Encoder, listAt, traversable)
 import qualified Waargonaut.Encode                  as E
 
 import           Level04.Conf                       (Conf, firstAppConfig)
@@ -39,7 +39,11 @@ import           Level04.Types                      (ContentType (JSON, PlainTex
                                                      Error (EmptyCommentText, EmptyTopic, UnknownRoute),
                                                      RqType (AddRq, ListRq, ViewRq),
                                                      mkCommentText, mkTopic,
-                                                     renderContentType)
+                                                     renderContentType, getTopic, Topic, getCommentText, Comment (commentBody))
+import Level04.DB (initDB, getTopics, addCommentToTopic, getComments)
+import Level04.Types.Topic (encodeTopic)
+import Data.Functor.Contravariant
+import Level04.Types.CommentText (encodeCommentText)
 
 -- Our start-up is becoming more complicated and could fail in new and
 -- interesting ways. But we also want to be able to capture these errors in a
@@ -49,7 +53,12 @@ data StartUpError
   deriving Show
 
 runApp :: IO ()
-runApp = error "runApp needs re-implementing"
+runApp = do
+    init <- prepareAppReqs
+    case init of
+      Left e -> error "abort error"
+      Right db -> do
+        run 3000 (app db)
 
 -- We need to complete the following steps to prepare our app requirements:
 --
@@ -60,8 +69,15 @@ runApp = error "runApp needs re-implementing"
 --
 prepareAppReqs
   :: IO ( Either StartUpError DB.FirstAppDB )
-prepareAppReqs =
-  error "prepareAppReqs not implemented"
+prepareAppReqs = do
+  let confLoad = firstAppConfig
+      conf = ":memory:"
+  initialization <- initDB conf
+  case initialization of
+    Left sqlRes -> return $ Left $ DBInitErr sqlRes
+    Right fADB  -> return $ Right fADB
+
+
 
 -- | Some helper functions to make our lives a little more DRY.
 mkResponse
@@ -138,12 +154,25 @@ handleRequest
   :: DB.FirstAppDB
   -> RqType
   -> IO (Either Error Response)
-handleRequest _db (AddRq _ _) =
-  (resp200 PlainText "Success" <$) <$> error "AddRq handler not implemented"
-handleRequest _db (ViewRq _)  =
-  error "ViewRq handler not implemented"
-handleRequest _db ListRq      =
-  error "ListRq handler not implemented"
+handleRequest db (AddRq t cm) =
+  (resp200 PlainText "Success" <$) <$> addCommentToTopic db t cm
+handleRequest db (ViewRq t)  =
+  (resp200Json encodeCommentsText . onlyBody <$>) <$> getComments db t
+    where
+      encodeCommentsText = traversable encodeCommentText 
+      onlyBody           = map commentBody 
+handleRequest db ListRq      = 
+  (resp200Json encodeTopics <$>) <$> getTopics db
+  where
+    encodeTopics = traversable encodeTopic
+
+{-
+  do
+  respDb <- getTopics db
+  return $ (\topics -> resp200Json (traverse encodeTopic topics) topics) <$> respDb
+  where 
+    encodeTopics topics = traverse encodeTopic topics
+-}
 
 mkRequest
   :: Request

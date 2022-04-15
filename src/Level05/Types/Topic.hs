@@ -12,6 +12,7 @@ import           Level05.Types.Error        (Error (EmptyTopic), nonEmptyText)
 
 import           Data.Functor.Contravariant ((>$<))
 import           Data.Text                  (Text)
+import qualified Database.SQLite.Simple as Sql
 
 newtype Topic = Topic Text
   deriving Show
@@ -30,3 +31,6 @@ getTopic
   -> Text
 getTopic (Topic t) =
   t
+
+instance Sql.FromRow Topic where
+  fromRow = Topic <$> Sql.field

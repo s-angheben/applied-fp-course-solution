@@ -40,13 +40,15 @@ import           Level06.AppM                       (App, AppM (..),
                                                      liftEither, runApp)
 import qualified Level06.Conf                       as Conf
 import qualified Level06.DB                         as DB
-import           Level06.Types                      (Conf, ConfigError,
+import           Level06.Types                      (Conf (dbFile, dbPort), ConfigError,
                                                      ContentType (..),
                                                      Error (..),
                                                      RqType (AddRq, ListRq, ViewRq),
                                                      encodeComment, encodeTopic,
                                                      mkCommentText, mkTopic,
-                                                     renderContentType)
+                                                     renderContentType, DBFilePath (getDBFilePath), Port (getPort), confPortToWai)
+import Level06.Conf (parseOptions)
+import Level06.DB (initDB)
 
 -- | Our start-up is becoming more complicated and could fail in new and
 -- interesting ways. But we also want to be able to capture these errors in a
@@ -57,7 +59,13 @@ data StartUpError
   deriving Show
 
 runApplication :: IO ()
-runApplication = error "copy your previous 'runApp' implementation and refactor as needed"
+runApplication = do
+  startup <- runAppM prepareAppReqs
+  case startup of 
+    Left e              -> putStr $ "error" ++ show e
+    Right (conf, appDB) -> Ex.finally (run (confPortToWai conf) (app conf appDB)) (DB.closeDB appDB)
+
+--  error "copy your previous 'runApp' implementation and refactor as needed"
 
 -- | We need to complete the following steps to prepare our app requirements:
 --
@@ -72,7 +80,11 @@ runApplication = error "copy your previous 'runApp' implementation and refactor 
 -- up!
 --
 prepareAppReqs :: AppM StartUpError (Conf, DB.FirstAppDB)
-prepareAppReqs = error "copy your prepareAppReqs from the previous level."
+prepareAppReqs = do
+--  conf <- first ConfErr $ parseOptions "files/appconfig.json"
+  conf <- first ConfErr $ parseOptions "files/test.json"
+  appDB <- first DBInitErr $ AppM $ initDB (getDBFilePath . dbFile $ conf)
+  return (conf, appDB)
 
 -- | Some helper functions to make our lives a little more DRY.
 mkResponse

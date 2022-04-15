@@ -41,7 +41,9 @@ import           Level05.Types                      (ContentType (..),
                                                      RqType (AddRq, ListRq, ViewRq),
                                                      encodeComment, encodeTopic,
                                                      mkCommentText, mkTopic,
-                                                     renderContentType)
+                                                     renderContentType, Comment (commentText))
+import Data.Bifunctor (first)
+import Level05.Types.CommentText (encodeCommentText)
 
 -- Our start-up is becoming more complicated and could fail in new and
 -- interesting ways. But we also want to be able to capture these errors in a
@@ -58,13 +60,13 @@ runApp = do
   case cfgE of
     Left err   ->
       -- We can't run our app at all! Display the message and exit the application.
-      undefined
+      putStrLn $ "error: " ++ show err
     Right cfg ->
       -- We have a valid config! We can now complete the various pieces needed to run our
       -- application. This function 'finally' will execute the first 'IO a', and then, even in the
       -- case of that value throwing an exception, execute the second 'IO b'. We do this to ensure
       -- that our DB connection will always be closed when the application finishes, or crashes.
-      Ex.finally (run undefined undefined) (DB.closeDB cfg)
+      Ex.finally (run 3000 (app cfg)) (DB.closeDB cfg)
 
 -- We need to complete the following steps to prepare our app requirements:
 --
@@ -75,8 +77,8 @@ runApp = do
 --
 prepareAppReqs
   :: IO ( Either StartUpError DB.FirstAppDB )
-prepareAppReqs =
-  error "copy your prepareAppReqs from the previous level."
+prepareAppReqs = first DBInitErr <$> DB.initDB ":memory:" 
+
 
 -- | Some helper functions to make our lives a little more DRY.
 mkResponse
@@ -130,8 +132,18 @@ resp200Json e =
 app
   :: DB.FirstAppDB
   -> Application
-app db rq cb =
-  error "app not reimplemented"
+app db rq cb = respond =<< runAppM (mkRequest rq >>= handleRequest db)
+  where
+    respond (Left e)  = cb $ mkErrorResponse e
+    respond (Right v) = cb v
+
+{-
+  do 
+  a <- runAppM ( mkRequest rq >>= handleRequest db)
+  case a of 
+    Left e  -> cb $ mkErrorResponse e
+    Right v -> cb v
+-}
 
 handleRequest
   :: DB.FirstAppDB
@@ -144,6 +156,17 @@ handleRequest db rqType = case rqType of
   AddRq t c -> resp200 PlainText "Success" <$ DB.addCommentToTopic db t c
   ViewRq t  -> resp200Json (E.list encodeComment) <$> DB.getComments db t
   ListRq    -> resp200Json (E.list encodeTopic)   <$> DB.getTopics db
+
+-- show only text  
+--  ViewRq t  -> resp200Json (E.list encodeCommentText) . map commentText <$> DB.getComments db t
+
+{-
+  ViewRq t -> do 
+    comments <- DB.getComments db t
+    liftIO $ print comments
+    return $ resp200Json (E.list encodeComment) comments
+-}
+
 
 mkRequest
   :: Request

@@ -89,7 +89,13 @@ library
     , waargonaut            >=0.6  && <0.9
     , wai                   >=3.2  && <3.4
     , warp                  >=3.2  && <3.4
-
+    , vector                >= 0.12
+    , basement              >= 0.0.14
+    , colour                >= 2.3.6
+    , wai-extra             >= 3.1.8
+    , network-byte-order    >= 0.1.6
+    , comonad               >= 5.0.8
+    , errors                >= 2.3.0
   -- Directories containing source files.
   hs-source-dirs:   src
 
