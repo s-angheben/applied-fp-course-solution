@@ -65,7 +65,20 @@ library
     Level07.Types.CommentText
     Level07.Types.Error
     Level07.Types.Topic
-
+-- my adds
+    Level08.AppM
+    Level08.Conf
+    Level08.Conf.CommandLine
+    Level08.Conf.File
+    Level08.Core
+    Level08.DB
+    Level08.DB.Types
+    Level08.Responses
+    Level08.Types
+    Level08.Types.CommentText
+    Level08.Types.Error
+    Level08.Types.Topic
+    
   ghc-options:
     -Wall -fno-warn-unused-binds -fno-warn-unused-do-bind
     -fno-warn-unused-imports -fno-warn-type-defaults -ferror-spans
@@ -183,6 +196,15 @@ executable level06-exe
 
 executable level07-exe
   main-is:          Level07.hs
+  hs-source-dirs:   exe
+  build-depends:
+      applied-fp-course
+    , base
+
+  default-language: Haskell2010
+
+executable level08-exe
+  main-is:          Level08.hs
   hs-source-dirs:   exe
   build-depends:
       applied-fp-course
