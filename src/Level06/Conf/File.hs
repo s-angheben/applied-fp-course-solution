@@ -39,13 +39,11 @@ readConfFile
   :: FilePath
   -> AppM ConfigError ByteString
 readConfFile fp = do
-      ea <- liftIO read
-      case ea of
-        Left _  -> throwError ReadFileError
-        Right v -> return v
+      ea <- liftIO readf
+      liftEither (first (const ReadFileError) ea)
       where
-        read :: IO (Either IOException ByteString)
-        read = try (Data.ByteString.readFile fp)
+        readf :: IO (Either IOException ByteString)
+        readf = try (Data.ByteString.readFile fp)
 
 --    let a = liftIO $ try $ Data.ByteString.readFile fp
 --    in a
