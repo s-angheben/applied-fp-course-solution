@@ -9,7 +9,7 @@ import           GHC.Word                 (Word16)
 import           Data.Bifunctor           (first)
 import           Data.Monoid              ((<>))
 
-import           Level06.AppM             (AppM, liftIO, liftEither)
+import           Level06.AppM             (AppM, liftIO, liftEither, catchError)
 import           Level06.Types            (Conf (Conf), ConfigError (MissingPathConfig, MissingPortConfig),
                                            DBFilePath (DBFilePath), PartialConf (PartialConf, pcPort, pcDBFilePath),
                                            Port (Port))
@@ -62,11 +62,16 @@ parseOptions
   -> AppM ConfigError Conf
 parseOptions fp = do
   commandLine <- liftIO commandLineParser 
-  file <- parseJSONConfigFile fp
+  file <- catchError (parseJSONConfigFile fp) (handlerFile)
   liftEither $ makeConfig (defaultConf <> file <> commandLine)
+  where
+    handlerFile err = do
+      liftIO $ putStrLn $ "error parsing the file config: " ++ show err
+      return $ PartialConf Nothing Nothing 
 
   -- Parse the options from the config file: "files/appconfig.json"
   -- Parse the options from the commandline using 'commandLineParser'
   -- Combine these with the default configuration 'defaultConf'
   -- Return the final configuration value
 --  error "parseOptions not implemented"
+ 

@@ -8,6 +8,7 @@ module Level06.AppM
   , liftIO
   , bimap
   , throwError
+  , catchError
   , runAppM
   , runApp
   ) where
